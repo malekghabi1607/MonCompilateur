@@ -1,42 +1,15 @@
-# CERIcompiler
+# MonCompilateur
 
-A simple compiler.
-From : Pascal-like imperative LL(k) langage
-To : 64 bit 80x86 assembly langage (AT&T)
+Ce projet est un mini-compilateur développé en C++ pour traduire un programme en langage Pascal simplifié en assembleur **x86_64**, puis en exécutable **ELF**.
 
-**Download the repository :**
+## Fonctionnement
 
-> git clone git@framagit.org:jourlin/cericompiler.git
+- Le fichier `compilateur.cpp` génère un fichier assembleur `test.s` à partir du fichier source Pascal `test.p`.
+- Ensuite, on utilise `gcc` pour générer l'exécutable.
+- Le programme peut être exécuté ou débogué avec `ddd`.
 
-**Build the compiler with debug symbols :**
+## Utilisation
 
-> g++ -ggdb compilateur.cpp -o compilateur
-
-**Compile the test program :**
-
-> cat test.p | ./compilateur > test.s
-
-**Have a look at the output :**
-
-> gedit test.s
-
-**Produce the executable (with debug info) :**
-
-> gcc -ggdb test.s -o test :
-
-**Debug the executable :**
-
-> ddd ./test
-
-**Commit the new version :**
-
-> git commit -a -m "What's new..."
-
-**Send to your framagit :**
-
-> git push -u origin master
-
-**Get from your framagit :**
-
-> git pull -u origin master
-
+### Compilation du compilateur :
+```bash
+g++ compilateur.cpp -o compilateur
