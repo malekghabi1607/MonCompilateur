@@ -1,0 +1,5 @@
+*.o
+*.s
+compilateur
+test
+tokeniser.cpp
