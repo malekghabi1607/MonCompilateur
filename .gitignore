@@ -3,3 +3,6 @@
 compilateur
 test
 tokeniser.cpp
+
+.vscode/
+g++
