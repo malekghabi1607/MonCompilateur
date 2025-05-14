@@ -21,6 +21,7 @@
 #include <string>
 #include <cstdlib>
 #include <set>
+#include <map>
 #include <cstring>
 #include <FlexLexer.h>
 #include "tokeniser.h"
@@ -29,7 +30,7 @@ using namespace std;
 
 
 // === Déclarations globales ===
-set<string> DeclaredVars;          // Variables déclarées
+map<string, TYPES> DeclaredVars;      // on a Changer le type de DeclaredVars
 unsigned long tagID = 0;           // Pour les étiquettes Vrai/Suite
 char lookedAhead;                  // Caractère look-ahead
 int NLookedAhead = 0;              // Compteur look-ahead
@@ -38,11 +39,11 @@ TOKEN current;                     // Token courant
 FlexLexer* lexer = new yyFlexLexer; // Lexer Flex++
 
 
+
 // énumérations pour les opérateurs
 enum OPREL {EQU, DIFF, INF, SUP, INFE, SUPE, WTFR};
 enum OPADD {ADD, SUB, OR, WTFA};
 enum OPMUL {MUL, DIV, MOD, AND, WTFM};
-
 
 // Vérifie si une variable est déclarée
 bool VariableConnue(const string& nom) {
@@ -50,14 +51,20 @@ bool VariableConnue(const string& nom) {
 }
 
 // Affiche une erreur personnalisée et arrête le programme
-void Erreur(const string& msg) {
+void TypeErreur(const string& msg) {
     cerr << "❌ Erreur ligne " << lexer->lineno() 
          << " : " << msg 
          << " (lu : '" << lexer->YYText() << "')" << endl;
     exit(1);
 }
 
-
+// Erreur classique (utilisée pour les erreurs de syntaxe, crochets, mots-clés...)
+void Erreur(const string& msg) {
+    cerr << "❌ Erreur ligne " << lexer->lineno() 
+         << " : " << msg 
+         << " (lu : '" << lexer->YYText() << "')" << endl;
+    exit(1);
+}
 
 
 
@@ -87,21 +94,27 @@ void Erreur(const string& msg) {
 //  Number : retourne toujours le type UNSIGNED_INT
 // Sert à vérifier que les valeurs numériques sont bien des entiers
 
-void Number() {
+TYPES Number() {
     cout << "\tpush $" << atoi(lexer->YYText()) << endl;
     current = (TOKEN) lexer->yylex();
+    return UNSIGNED_INT;
 }
 
 
 //  Identifier : retourne le type de la variable déjà déclarée
 // Actuellement, on suppose que toutes les variables sont de type UNSIGNED_INT
 
-void Identifier() {
-    cout << "\tpush " << lexer->YYText() << endl;
+TYPES Identifier() {
+    string nom = lexer->YYText();
+    if (!VariableConnue(nom))
+        Erreur("Variable non déclarée : " + nom);
+    cout << "\tpush " << nom << endl;
     current = (TOKEN) lexer->yylex();
+    return DeclaredVars[nom];
 }
 
-void Expression();                
+
+TYPES Expression();                
 OPADD AdditiveOperator(void); 
 void IfStatement();
 void WhileStatement();
@@ -117,20 +130,22 @@ void BlockStatement();
 // Retourne le type qu’il a rencontré
 
 // Analyse un facteur d'une expression (nombre, variable, parenthèses)
-void Factor(void) {
+TYPES Factor() {
+    TYPES t;
     if (current == RPARENT) {
         current = (TOKEN) lexer->yylex();
-        Expression();
+        t = Expression();
         if (current != LPARENT)
-            Erreur("parenthèse fermante attendue");
+            Erreur("Parenthèse fermante attendue");
         current = (TOKEN) lexer->yylex();
     } else if (current == NUMBER) {
-        Number();
+        t = Number();
     } else if (current == ID) {
-        Identifier();
+        t = Identifier();
     } else {
         Erreur("valeur attendue : identifiant, nombre ou parenthèse");
     }
+    return t;
 }
 
 
@@ -160,77 +175,71 @@ OPMUL MultiplicativeOperator(void){
 // Analyse un terme : une suite de facteurs liés par des opérateurs multiplicatifs
 // Term := Factor {MultiplicativeOperator Factor}
 
-void Term(void){
-	OPMUL mulop;
-	Factor();
-	while(current==MULOP){
-		mulop=MultiplicativeOperator();		// Save operator in local variable
-		Factor();
-		cout << "\tpop %rbx"<<endl;	// get first operand
-		cout << "\tpop %rax"<<endl;	// get second operand
-		switch(mulop){
-			case AND:
-				cout << "\tmulq	%rbx"<<endl;	// a * b -> %rdx:%rax
-				cout << "\tpush %rax\t# AND"<<endl;	// store result
-				break;
-			case MUL:
-				cout << "\tmulq	%rbx"<<endl;	// a * b -> %rdx:%rax
-				cout << "\tpush %rax\t# MUL"<<endl;	// store result
-				break;
-			case DIV:
-				cout << "\tmovq $0, %rdx"<<endl; 	// Higher part of numerator  
-				cout << "\tdiv %rbx"<<endl;			// quotient goes to %rax
-				cout << "\tpush %rax\t# DIV"<<endl;		// store result
-				break;
-			case MOD:
-				cout << "\tmovq $0, %rdx"<<endl; 	// Higher part of numerator  
-				cout << "\tdiv %rbx"<<endl;			// remainder goes to %rdx
-				cout << "\tpush %rdx\t# MOD"<<endl;		// store result
-				break;
-			default:
-				Erreur("opérateur multiplicatif attendu");
-		}
-	}
+
+TYPES Term() {
+    TYPES t1 = Factor();
+    while (current == MULOP) {
+        OPMUL op = MultiplicativeOperator();
+        TYPES t2 = Factor();
+        if (t1 != t2) TypeErreur("types incompatibles dans Term");
+        cout << "\tpop %rbx" << endl;
+        cout << "\tpop %rax" << endl;
+        switch(op) {
+            case AND:
+                cout << "\tmulq\t%rbx" << endl;
+                cout << "\tpush %rax\t# AND" << endl;
+                break;
+            case MUL:
+                cout << "\tmulq\t%rbx" << endl;
+                cout << "\tpush %rax\t# MUL" << endl;
+                break;
+            case DIV:
+                cout << "\tmovq $0, %rdx" << endl;
+                cout << "\tdiv %rbx" << endl;
+                cout << "\tpush %rax\t# DIV" << endl;
+                break;
+            case MOD:
+                cout << "\tmovq $0, %rdx" << endl;
+                cout << "\tdiv %rbx" << endl;
+                cout << "\tpush %rdx\t# MOD" << endl;
+                break;
+            default:
+                Erreur("opérateur multiplicatif attendu");
+        }
+    }
+    return t1;
 
 }
-
 
 // SimpleExpression := Term {AdditiveOperator Term}
 //  SimpleExpression : gère les +, -, ||
 // Vérifie les types des Term, retourne le type si tous identiques
 
-
-void SimpleExpression(void){
-
-
-	OPADD adop;
-	Term();
-
-	while(current==ADDOP){
-		adop=AdditiveOperator();		// Save operator in local variable
-		Term();
-		cout << "\tpop %rbx"<<endl;	// get first operand
-		cout << "\tpop %rax"<<endl;	// get second operand
-		switch(adop){
-			case OR:
-				cout << "\taddq	%rbx, %rax\t# OR"<<endl;// operand1 OR operand2
-				break;			
-			case ADD:
-				cout << "\taddq	%rbx, %rax\t# ADD"<<endl;	// add both operands
-				break;			
-			case SUB:	
-				cout << "\tsubq	%rbx, %rax\t# SUB"<<endl;	// substract both operands
-				break;
-			default:
-				Erreur("opérateur additif inconnu");
-		}
-		cout << "\tpush %rax"<<endl;			// store result
-	}
-
-
-
+TYPES SimpleExpression() {
+    TYPES t1 = Term();
+    while (current == ADDOP) {
+        OPADD op = AdditiveOperator();
+        TYPES t2 = Term();
+        if (t1 != t2) TypeErreur("types incompatibles dans SimpleExpression");
+        cout << "\tpop %rbx" << endl;
+        cout << "\tpop %rax" << endl;
+        switch(op) {
+            case OR:
+                cout << "\taddq\t%rbx, %rax\t# OR" << endl;
+                break;
+            case ADD:
+                cout << "\taddq\t%rbx, %rax\t# ADD" << endl;
+                break;
+            case SUB:
+                cout << "\tsubq\t%rbx, %rax\t# SUB" << endl;
+                break;
+            default:
+                Erreur("opérateur additif inconnu");
+        }
+        cout << "\tpush %rax" << endl;
+    }
+    return t1;
 }
-
 
 
 // DeclarationPart := "[" Letter {"," Letter} "]"
@@ -254,7 +263,8 @@ void DeclarationPart(void) {
         if (DeclaredVars.count(nomVar))
             Erreur("La variable '" + nomVar + "' est déjà définie");
 
-        DeclaredVars.insert(nomVar);
+        DeclaredVars[nomVar] = UNSIGNED_INT; 
+
         cout << nomVar << ":\t.quad 0" << endl;
 
         current = (TOKEN) lexer->yylex();
@@ -294,13 +304,14 @@ OPREL RelationalOperator(void) {
 
 // Expression := SimpleExpression [RelationalOperator SimpleExpression]
 // Gère une expression complète : opération simple avec comparateur optionnel (==, <, etc.)
-void Expression(void) {
-    SimpleExpression(); // On commence par une expression simple (addition, multiplication...)
+TYPES Expression() {
+    TYPES t1 = SimpleExpression(); // On commence par une expression simple (addition, multiplication...)
 
     if (current == RELOP) {
         OPREL oprel = RelationalOperator(); // On récupère le comparateur logique
-        SimpleExpression(); // Deuxième partie de l'expression à comparer
+        TYPES t2 = SimpleExpression(); // Deuxième partie de l'expression à comparer
 
+        if (t1 != t2) TypeErreur("types incompatibles pour la comparaison");
         // Génération du code assembleur pour la comparaison
         cout << "\tpop %rax\n\tpop %rbx\n\tcmpq %rax, %rbx" << endl;
 
@@ -321,6 +332,7 @@ void Expression(void) {
         // Vrai : on pousse -1 (vrai)
         cout << "Vrai" << tag << ":\tpush $-1\nSuite" << tag << ":" << endl;
     }
+    return BOOLEAN;
 }
 
 

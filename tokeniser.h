@@ -18,10 +18,10 @@ enum MOTCLEVAL {
 int GetKeyword();
 
 
+// Enumération des types
+enum TYPES { UNSIGNED_INT, BOOLEAN };
 
 
 
-// 🔧 Définition des types de données reconnus par le compilateur
-// On ajoute un enum TYPE pour pouvoir gérer les types (int, bool, etc.)
 
 #endif

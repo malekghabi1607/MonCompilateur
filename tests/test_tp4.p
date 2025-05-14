@@ -1,15 +1,11 @@
-// Cas de test TP4 : toutes les instructions ont des types corrects
-//  Si tu veux tester un échec, fais un autre fichier avec un mauvais type et commente :
-//
-// Erreur attendue ici : affectation booléen dans une variable entière
+[a, b, c, z]
 
+a := 10;
+b := 20;
+c := a + b;
 
-/*  À faire :
-
-    Crée plusieurs petits programmes .p avec :
-
-        des affectations valides
-
-        des erreurs de type (ex. a := (5 < 3) + 2;)
-
-*/
+IF c > 25 THEN
+    z := 1
+ELSE
+    z := 0
+.
