@@ -44,9 +44,6 @@ enum OPADD {ADD, SUB, OR, WTFA};
 enum OPMUL {MUL, DIV, MOD, AND, WTFM};
 
 
-
-
-
 // Vérifie si une variable est déclarée
 bool VariableConnue(const string& nom) {
     return DeclaredVars.count(nom) != 0;
@@ -96,8 +93,17 @@ void Identifier() {
     current = (TOKEN) lexer->yylex();
 }
 
-void Expression();                 // Déjà là pour pouvoir appeler Expression() dans Factor()
-OPADD AdditiveOperator(void);     // A ajouter pour pouvoir appeler AdditiveOperator() dans SimpleExpression()
+void Expression();                
+OPADD AdditiveOperator(void); 
+void IfStatement();
+void WhileStatement();
+void ForStatement();
+void BlockStatement();
+
+
+
+
+
 
 
 // Analyse un facteur d'une expression (nombre, variable, parenthèses)
@@ -348,10 +354,161 @@ void AssignementStatement(void) {
 }
 
 
+
+int GetKeyword() {
+    string kw = lexer->YYText();
+    if (kw == "IF") return IF_;
+    if (kw == "THEN") return THEN_;
+    if (kw == "ELSE") return ELSE_;
+    if (kw == "WHILE") return WHILE_;
+    if (kw == "DO") return DO_;
+    if (kw == "FOR") return FOR_;
+    if (kw == "TO") return TO_;
+    if (kw == "BEGIN") return BEGIN_;
+    if (kw == "END") return END_;
+    return UNKNOWN_KEYWORD;
+}
+
 // Traite une instruction simple (actuellement : affectation uniquement)
 void Statement(void) {
-    AssignementStatement();
+    if (current == ID) {
+        AssignementStatement();
+    } else if (current == MOTCLE) {
+        switch(GetKeyword()) {
+            case IF_:     IfStatement(); break;
+            case WHILE_:  WhileStatement(); break;
+            case FOR_:    ForStatement(); break;
+            case BEGIN_:  BlockStatement(); break;
+            default: Erreur("Mot-clé inattendu");
+        }
+    } else {
+        Erreur("Instruction inconnue");
+    }
 }
+// Gère une instruction conditionnelle IF avec option ELSE
+// Syntaxe : IF <expression> THEN <instruction> [ELSE <instruction>]
+void IfStatement() {
+    unsigned long numTag = ++tagID;
+
+    // Vérifie le mot-clé IF
+    if (current != MOTCLE || GetKeyword() != IF_)
+        Erreur("Mot-clé 'IF' attendu");
+
+    current = (TOKEN) lexer->yylex();  // Passe IF
+
+    // Évalue la condition
+    Expression();
+
+    // Génère le code pour vérifier si la condition est fausse (== 0)
+    cout << "\tpop %rax\n\tcmpq $0, %rax\n";
+    cout << "\tje ELSE" << numTag << endl;
+
+    // Vérifie et passe THEN
+    if (current != MOTCLE || GetKeyword() != THEN_)
+        Erreur("'THEN' attendu après IF");
+
+    current = (TOKEN) lexer->yylex();  // Passe THEN
+
+    // Partie exécutée si condition vraie
+    Statement();
+    cout << "\tjmp FINIF" << numTag << endl;
+
+    // Partie exécutée si condition fausse
+    cout << "ELSE" << numTag << ":" << endl;
+
+    if (current == MOTCLE && GetKeyword() == ELSE_) {
+        current = (TOKEN) lexer->yylex();  // Passe ELSE
+        Statement();
+    }
+
+    // Fin de l'instruction IF
+    cout << "FINIF" << numTag << ":" << endl;
+}
+
+
+
+// Gère une boucle conditionnelle WHILE
+// Syntaxe : WHILE <expression> DO <instruction>
+void WhileStatement() {
+    unsigned long tag = ++tagID;
+
+    if (GetKeyword() != WHILE_) Erreur("Mot-clé 'WHILE' attendu");
+    current = (TOKEN) lexer->yylex();
+
+    // Début de la boucle
+    cout << "DEBUTWHILE" << tag << ":" << endl;
+
+    // Évaluation de la condition
+    Expression();
+    cout << "\tpop %rax\n\tcmpq $0, %rax" << endl;
+    cout << "\tje FINWHILE" << tag << endl;
+
+    if (current != MOTCLE || GetKeyword() != DO_) Erreur("'DO' attendu après WHILE");
+    current = (TOKEN) lexer->yylex();
+
+    // Corps de la boucle
+    Statement();
+    cout << "\tjmp DEBUTWHILE" << tag << endl;
+
+    // Fin de boucle
+    cout << "FINWHILE" << tag << ":" << endl;
+}
+
+
+// Gère une boucle FOR à incrémentation
+// Syntaxe : FOR <assignation> TO <expression> DO <instruction>
+void ForStatement() {
+    unsigned long tag = ++tagID;
+
+    if (GetKeyword() != FOR_) Erreur("'FOR' attendu");
+    current = (TOKEN) lexer->yylex();
+
+    string var = lexer->YYText(); // i
+    AssignementStatement();       // i := 0
+
+    if (current != MOTCLE || GetKeyword() != TO_) Erreur("'TO' attendu après FOR");
+    current = (TOKEN) lexer->yylex();
+
+    cout << "DEBUTFOR" << tag << ":" << endl;
+
+    Expression(); // évalue TO
+    cout << "\tpop %rax" << endl;                    // TO -> rax
+    cout << "\tcmpq %rax, " << var << endl;         // compare i > TO ?
+    cout << "\tja FINFOR" << tag << endl;
+
+    if (current != MOTCLE || GetKeyword() != DO_) Erreur("'DO' attendu après TO");
+    current = (TOKEN) lexer->yylex();
+
+    Statement();
+
+    cout << "\tincq " << var << "\n\tjmp DEBUTFOR" << tag << endl;
+    cout << "FINFOR" << tag << ":" << endl;
+}
+
+
+
+// Gère un bloc BEGIN ... END contenant plusieurs instructions
+// Syntaxe : BEGIN <instruction> { ; <instruction> } END
+void BlockStatement() {
+    if (GetKeyword() != BEGIN_) Erreur("'BEGIN' attendu");
+    current = (TOKEN) lexer->yylex();
+
+    // Première instruction
+    Statement();
+
+    // Instructions séparées par ;
+    while (current == SEMICOLON) {
+        current = (TOKEN) lexer->yylex();
+        Statement();
+    }
+
+    // Fin du bloc
+    if (current != MOTCLE || GetKeyword() != END_) Erreur("'END' attendu pour fermer le bloc");
+    current = (TOKEN) lexer->yylex();
+}
+
+
+
 
 
 // Partie exécutable du programme : enchaînement d’instructions terminées par un point
@@ -379,7 +536,7 @@ void Program(void) {
     StatementPart();
 }
 // Point d'entrée principal du compilateur
-// Point d'entrée principal du compilateur
+
 int main(void) {
     // Entête du code assembleur
     cout << "\t\t\t# Code généré automatiquement par MonCompilateur" << endl;
@@ -401,6 +558,20 @@ int main(void) {
     cout << "\tcall printf" << endl;
 
 
+
+    // Affichage de la variable c
+    cout << "\tmovq c, %rsi" << endl;
+    cout << "\tleaq msg_c(%rip), %rdi" << endl;
+    cout << "\txor %rax, %rax" << endl;
+    cout << "\tcall printf" << endl;
+
+    // Affichage de la variable z
+    cout << "\tmovq z, %rsi" << endl;
+    cout << "\tleaq msg_z(%rip), %rdi" << endl;
+    cout << "\txor %rax, %rax" << endl;
+    cout << "\tcall printf" << endl;
+
+
     // Épilogue du programme assembleur
     cout << "\tmovq %rbp, %rsp\n\tret" << endl;
 
@@ -408,6 +579,9 @@ int main(void) {
     cout << "\t.section .rodata" << endl;
     cout << "msg_a:\t.string \"Valeur de a : %ld\\n\"" << endl;
     cout << "msg_b:\t.string \"Valeur de b : %ld\\n\"" << endl;
+    cout << "msg_c:\t.string \"Valeur de c : %ld\\n\"" << endl;
+    cout << "msg_z:\t.string \"Valeur de z : %ld\\n\"" << endl;
+
 
     // Section standard GNU
     cout << "\t.section .note.GNU-stack,\"\",@progbits" << endl;
