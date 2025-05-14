@@ -27,3 +27,10 @@ test: compilateur test.p
 		echo '\t.section .note.GNU-stack,"",@progbits' >> test.s
 		gcc -ggdb -no-pie -fno-pie test.s -o test
 		@echo "Compilation terminée avec succès. Lancez ./test"
+
+
+# 🎯 Règle make test_tp4 : compile le compilateur + lance le test_tp4.p
+test_tp4:
+	./compilateur < tests/test_tp4.p > test.s
+	gcc -ggdb -no-pie -fno-pie test.s -o test
+	./test

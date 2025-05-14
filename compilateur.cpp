@@ -83,10 +83,18 @@ void Erreur(const string& msg) {
 
 // --- Analyse syntaxique et génération d'assembleur ---
 
+
+//  Number : retourne toujours le type UNSIGNED_INT
+// Sert à vérifier que les valeurs numériques sont bien des entiers
+
 void Number() {
     cout << "\tpush $" << atoi(lexer->YYText()) << endl;
     current = (TOKEN) lexer->yylex();
 }
+
+
+//  Identifier : retourne le type de la variable déjà déclarée
+// Actuellement, on suppose que toutes les variables sont de type UNSIGNED_INT
 
 void Identifier() {
     cout << "\tpush " << lexer->YYText() << endl;
@@ -105,6 +113,8 @@ void BlockStatement();
 
 
 
+//  Factor : appelle Number ou Identifier ou Expression récursivement
+// Retourne le type qu’il a rencontré
 
 // Analyse un facteur d'une expression (nombre, variable, parenthèses)
 void Factor(void) {
@@ -186,6 +196,8 @@ void Term(void){
 
 
 // SimpleExpression := Term {AdditiveOperator Term}
+//  SimpleExpression : gère les +, -, ||
+// Vérifie les types des Term, retourne le type si tous identiques
 
 
 void SimpleExpression(void){
@@ -275,6 +287,11 @@ OPREL RelationalOperator(void) {
 }
 
 
+
+//  Expression : gère éventuellement une comparaison entre deux expressions arithmétiques
+// Si une comparaison est faite (==, !=, <, etc.), retourne BOOLEAN
+// Sinon retourne le type de la SimpleExpression
+
 // Expression := SimpleExpression [RelationalOperator SimpleExpression]
 // Gère une expression complète : opération simple avec comparateur optionnel (==, <, etc.)
 void Expression(void) {
@@ -331,6 +348,10 @@ OPADD AdditiveOperator(void){
 
 
 
+
+//  Affectation : vérifie que le type de la variable et celui de l'expression sont identiques
+// Sinon déclenche une erreur de type
+
 // Analyse une instruction d'affectation : une variable reçoit une valeur (ex : x := 5+2)
 void AssignementStatement(void) {
     if (current != ID)
@@ -385,6 +406,14 @@ void Statement(void) {
         Erreur("Instruction inconnue");
     }
 }
+
+
+
+//  Conditionnelle IF ou boucle WHILE : vérifie que l'expression conditionnelle est bien de type BOOLEAN
+// Sinon génère une erreur de type
+
+
+
 // Gère une instruction conditionnelle IF avec option ELSE
 // Syntaxe : IF <expression> THEN <instruction> [ELSE <instruction>]
 void IfStatement() {
@@ -535,7 +564,29 @@ void Program(void) {
 
     StatementPart();
 }
+
+
+
+/*
+
+À faire dans ce fichier aussi :
+
+    Crée une fonction TypeErreur(string message) pour afficher une erreur de type claire.
+
+    Ajoute des vérifications dans les fonctions d’analyse.
+
+    Modifie le main() si besoin pour tester une variable supplémentaire.
+*/
+
+
+
+
+
+
+
 // Point d'entrée principal du compilateur
+
+
 
 int main(void) {
     // Entête du code assembleur

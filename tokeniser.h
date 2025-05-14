@@ -17,4 +17,11 @@ enum MOTCLEVAL {
 // Juste la **déclaration** de la fonction :
 int GetKeyword();
 
+
+
+
+
+// 🔧 Définition des types de données reconnus par le compilateur
+// On ajoute un enum TYPE pour pouvoir gérer les types (int, bool, etc.)
+
 #endif

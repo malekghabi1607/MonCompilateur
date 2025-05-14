@@ -26,6 +26,12 @@ Ce projet est un mini-compilateur développé en C++ pour traduire un programme 
 - Boucles : `WHILE ... DO ...`, `FOR i := ... TO ... DO ...`
 - Blocs : `BEGIN ... ; ... END`
 
+
+### TP4 : Gestion des types
+- Vérification automatique des types dans toutes les expressions
+- Détection des erreurs de type : affectation incorrecte, mauvais type de condition
+- Ajout d’un système de type (UNSIGNED_INT, BOOLEAN)
+
 ## Utilisation
 
 
