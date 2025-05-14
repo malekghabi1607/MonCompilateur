@@ -6,3 +6,6 @@ tokeniser.cpp
 
 .vscode/
 g++
+test
+test.s
+compilateur
