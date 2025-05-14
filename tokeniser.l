@@ -36,7 +36,20 @@ unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
 {mulop}		return MULOP;
 {relop}		return RELOP;
 {number}	return NUMBER;
+
+"IF"        return MOTCLE;
+"THEN"      return MOTCLE;
+"ELSE"      return MOTCLE;
+"WHILE"     return MOTCLE;
+"DO"        return MOTCLE;
+"FOR"       return MOTCLE;
+"TO"        return MOTCLE;
+"BEGIN"     return MOTCLE;
+"END"       return MOTCLE;
+
+
 {id}		return ID;
+
 {stringconst}	return STRINGCONST;
 "["		return RBRACKET;
 "]"		return LBRACKET;
