@@ -11,7 +11,7 @@ enum TOKEN {
 
 // Juste la **déclaration** de l'enum des mots-clés
 enum MOTCLEVAL {
-    IF_, THEN_, ELSE_, WHILE_, DO_, FOR_, TO_, BEGIN_, END_, UNKNOWN_KEYWORD
+    IF_, THEN_, ELSE_, WHILE_, DO_, FOR_, TO_, BEGIN_, END_, DISPLAY_, UNKNOWN_KEYWORD
 };
 
 // Juste la **déclaration** de la fonction :

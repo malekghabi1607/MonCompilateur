@@ -1,11 +1,10 @@
 *.o
 *.s
-compilateur
 test
+compilateur
 tokeniser.cpp
-
-.vscode/
-g++
+compilateur
 test
 test.s
-compilateur
+g++
+.vscode/

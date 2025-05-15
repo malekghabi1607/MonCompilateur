@@ -29,6 +29,8 @@ addop	(\+|\-|\|\|)
 mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
+keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER"|"BOOLEAN"|"DISPLAY")
+
 
 %%
 
@@ -46,6 +48,8 @@ unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
 "TO"        return MOTCLE;
 "BEGIN"     return MOTCLE;
 "END"       return MOTCLE;
+"DISPLAY"               return MOTCLE;
+{keyword}        return MOTCLE;
 
 
 {id}		return ID;

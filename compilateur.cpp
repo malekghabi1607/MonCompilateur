@@ -120,6 +120,7 @@ void IfStatement();
 void WhileStatement();
 void ForStatement();
 void BlockStatement();
+void DisplayStatement();
 
 
 
@@ -307,17 +308,14 @@ OPREL RelationalOperator(void) {
 TYPES Expression() {
     TYPES t1 = SimpleExpression(); // On commence par une expression simple (addition, multiplication...)
 
-    if (current == RELOP) {
-        OPREL oprel = RelationalOperator(); // On récupère le comparateur logique
-        TYPES t2 = SimpleExpression(); // Deuxième partie de l'expression à comparer
-
+        if (current == RELOP) {
+        OPREL oprel = RelationalOperator();
+        TYPES t2 = SimpleExpression();
         if (t1 != t2) TypeErreur("types incompatibles pour la comparaison");
-        // Génération du code assembleur pour la comparaison
+
         cout << "\tpop %rax\n\tpop %rbx\n\tcmpq %rax, %rbx" << endl;
+        string tag = to_string(++tagID);
 
-        string tag = to_string(++tagID); // Création d'une étiquette unique
-
-        // Selon le comparateur, on saute vers le bloc 'Vrai'
         if      (oprel == EQU)  cout << "\tje Vrai" << tag << endl;
         else if (oprel == DIFF) cout << "\tjne Vrai" << tag << endl;
         else if (oprel == INF)  cout << "\tjb Vrai" << tag << endl;
@@ -326,13 +324,14 @@ TYPES Expression() {
         else if (oprel == SUPE) cout << "\tjae Vrai" << tag << endl;
         else Erreur("comparateur non reconnu");
 
-        // Faux : on pousse 0 (faux), puis on saute la partie 'vrai'
         cout << "\tpush $0\n\tjmp Suite" << tag << endl;
-
-        // Vrai : on pousse -1 (vrai)
         cout << "Vrai" << tag << ":\tpush $-1\nSuite" << tag << ":" << endl;
+
+        return BOOLEAN;  // ✅ ici uniquement si on fait une comparaison
     }
-    return BOOLEAN;
+
+    return t1;  // ✅ sinon, on renvoie le type de la SimpleExpression (ex: a+1 => UNSIGNED_INT)
+
 }
 
 
@@ -399,6 +398,7 @@ int GetKeyword() {
     if (kw == "TO") return TO_;
     if (kw == "BEGIN") return BEGIN_;
     if (kw == "END") return END_;
+    if (kw == "DISPLAY") return DISPLAY_;
     return UNKNOWN_KEYWORD;
 }
 
@@ -412,6 +412,8 @@ void Statement(void) {
             case WHILE_:  WhileStatement(); break;
             case FOR_:    ForStatement(); break;
             case BEGIN_:  BlockStatement(); break;
+            case DISPLAY_: DisplayStatement(); break;
+
             default: Erreur("Mot-clé inattendu");
         }
     } else {
@@ -438,7 +440,10 @@ void IfStatement() {
     current = (TOKEN) lexer->yylex();  // Passe IF
 
     // Évalue la condition
-    Expression();
+
+    TYPES tcond = Expression();
+    if (tcond != BOOLEAN) TypeErreur("La condition d’un IF doit être booléenne");
+
 
     // Génère le code pour vérifier si la condition est fausse (== 0)
     cout << "\tpop %rax\n\tcmpq $0, %rax\n";
@@ -480,7 +485,10 @@ void WhileStatement() {
     cout << "DEBUTWHILE" << tag << ":" << endl;
 
     // Évaluation de la condition
-    Expression();
+
+    TYPES tcond = Expression();
+    if (tcond != BOOLEAN) TypeErreur("La condition d’un WHILE doit être booléenne");
+
     cout << "\tpop %rax\n\tcmpq $0, %rax" << endl;
     cout << "\tje FINWHILE" << tag << endl;
 
@@ -512,7 +520,11 @@ void ForStatement() {
 
     cout << "DEBUTFOR" << tag << ":" << endl;
 
-    Expression(); // évalue TO
+
+
+    TYPES tmax = Expression();
+    if (tmax != UNSIGNED_INT) TypeErreur("La borne du FOR doit être un entier non signé");
+
     cout << "\tpop %rax" << endl;                    // TO -> rax
     cout << "\tcmpq %rax, " << var << endl;         // compare i > TO ?
     cout << "\tja FINFOR" << tag << endl;
@@ -578,18 +590,20 @@ void Program(void) {
 }
 
 
+void DisplayStatement() {
+    current = (TOKEN) lexer->yylex(); // lire l'expression
+    TYPES t = Expression(); // compiler l'expression
 
-/*
+    if (t != UNSIGNED_INT) 
+        TypeErreur("DISPLAY ne fonctionne qu'avec des entiers non signés");
 
-À faire dans ce fichier aussi :
-
-    Crée une fonction TypeErreur(string message) pour afficher une erreur de type claire.
-
-    Ajoute des vérifications dans les fonctions d’analyse.
-
-    Modifie le main() si besoin pour tester une variable supplémentaire.
-*/
-
+    cout << "\tpop %rdx" << endl;
+    cout << "\tmovq $DisplayMsg, %rsi" << endl;
+    cout << "\tmovq $FormatString1, %rsi" << endl;
+    cout << "\tmovl $1, %edi" << endl;
+    cout << "\tmovl $0, %eax" << endl;
+    cout << "\tcall __printf_chk@PLT" << endl;
+}
 
 
 
@@ -644,6 +658,11 @@ int main(void) {
     cout << "msg_b:\t.string \"Valeur de b : %ld\\n\"" << endl;
     cout << "msg_c:\t.string \"Valeur de c : %ld\\n\"" << endl;
     cout << "msg_z:\t.string \"Valeur de z : %ld\\n\"" << endl;
+    
+    cout << "DisplayMsg:\t.string \"Résultat : %llu\\n\"\t# affichage entier 64 bits" << endl;
+    cout << "FormatString1:\t.string \"%llu\\n\"\t# affichage brut sans message" << endl;
+
+    
 
 
     // Section standard GNU
