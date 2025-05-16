@@ -6,13 +6,16 @@
 enum TOKEN {
     FEOF, UNKNOWN, NUMBER, ID, STRINGCONST, RBRACKET, LBRACKET,
     RPARENT, LPARENT, COMMA, SEMICOLON, DOT, ADDOP, MULOP,
-    RELOP, NOT, ASSIGN, MOTCLE 
+    RELOP, NOT, ASSIGN, MOTCLE, COLON
+
 };
 
 // Juste la **déclaration** de l'enum des mots-clés
 enum MOTCLEVAL {
-    IF_, THEN_, ELSE_, WHILE_, DO_, FOR_, TO_, BEGIN_, END_, DISPLAY_, UNKNOWN_KEYWORD
+    IF_, THEN_, ELSE_, WHILE_, DO_, FOR_, TO_, BEGIN_, END_,
+    DISPLAY_, VAR_, BOOLEAN_, INTEGER_, CHAR_, DOUBLE_, UNKNOWN_KEYWORD
 };
+
 
 // Juste la **déclaration** de la fonction :
 int GetKeyword();

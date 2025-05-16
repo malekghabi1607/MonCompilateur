@@ -122,8 +122,10 @@ void ForStatement();
 void BlockStatement();
 void DisplayStatement();
 
+void VarDeclaration(); 
+TYPES Type();         
 
-
+void VarDeclarationPart();  // Prototype de la fonction
 
 
 
@@ -243,43 +245,98 @@ TYPES SimpleExpression() {
 }
 
 
+
+
+
+
+
 // DeclarationPart := "[" Letter {"," Letter} "]"
 // Analyse la déclaration des variables entre [ ... ] et génère leur allocation mémoire
-void DeclarationPart(void) {
-    if (current != RBRACKET)
-        Erreur("Il manque le crochet ouvrant '[' pour commencer la déclaration");
 
-    // Section des données globales pour le programme
-    cout << "\t.data" << endl;
-    cout << "\t.align 8" << endl;
 
+// Déclaration d'une ligne de variables typées : a,b,c : BOOLEAN
+void VarDeclaration() {
+    set<string> variables;
+
+    if (current != ID)
+        Erreur("Nom de variable attendu");
+
+    variables.insert(lexer->YYText());
     current = (TOKEN) lexer->yylex();
 
-    while (true) {
-        if (current != ID)
-            Erreur("Nom de variable attendu");
-
-        string nomVar = lexer->YYText();
-
-        if (DeclaredVars.count(nomVar))
-            Erreur("La variable '" + nomVar + "' est déjà définie");
-
-        DeclaredVars[nomVar] = UNSIGNED_INT; 
-
-        cout << nomVar << ":\t.quad 0" << endl;
-
+    while (current == COMMA) {
         current = (TOKEN) lexer->yylex();
+        if (current != ID)
+            Erreur("Nom de variable attendu après ','");
 
-        if (current != COMMA)
-            break; // Fin de la liste des variables
+        variables.insert(lexer->YYText());
         current = (TOKEN) lexer->yylex();
     }
 
-    if (current != LBRACKET)
-        Erreur("Il manque le crochet fermant ']' après les variables");
+    if (current != COLON)
+        Erreur("':' attendu");
 
     current = (TOKEN) lexer->yylex();
+    TYPES type = Type();
+
+    for (auto& nom : variables) {
+        if (DeclaredVars.count(nom))
+            Erreur("Variable déjà déclarée : " + nom);
+
+        DeclaredVars[nom] = type;
+
+        // Affiche la bonne allocation mémoire en assembleur suivant le type
+        switch(type) {
+            case BOOLEAN:
+            case UNSIGNED_INT:
+                cout << nom << ":\t.quad 0" << endl;
+                break;
+            // tu peux gérer d'autres types ici plus tard (CHAR, DOUBLE)
+            default:
+                Erreur("Type non géré en allocation mémoire");
+        }
+    }
 }
+
+// Gestion complète de la déclaration VAR ...
+void VarDeclarationPart() {
+    if (GetKeyword() != VAR_)
+        Erreur("'VAR' attendu");
+
+    current = (TOKEN) lexer->yylex(); // Passe 'VAR'
+
+    VarDeclaration();
+
+    while (current == SEMICOLON) {
+        current = (TOKEN) lexer->yylex();
+        VarDeclaration();
+    }
+
+    if (current != DOT)
+        Erreur("'.' attendu à la fin de la déclaration de variables");
+
+    current = (TOKEN) lexer->yylex(); // Passe '.'
+}
+
+
+TYPES Type() {
+    if (current != MOTCLE)
+        Erreur("Type attendu");
+
+    string t = lexer->YYText();
+
+    if (t == "BOOLEAN") {
+        current = (TOKEN) lexer->yylex();
+        return BOOLEAN;
+    } else if (t == "INTEGER") {
+        current = (TOKEN) lexer->yylex();
+        return UNSIGNED_INT;
+    } else {
+        Erreur("Type non reconnu : " + t);
+        return BOOLEAN; // juste pour éviter warnings
+    }
+}
+
 
 
 // Détecte et interprète un opérateur de comparaison logique (==, !=, <, >, <=, >=)
@@ -399,22 +456,41 @@ int GetKeyword() {
     if (kw == "BEGIN") return BEGIN_;
     if (kw == "END") return END_;
     if (kw == "DISPLAY") return DISPLAY_;
+    if (kw == "VAR") return VAR_;
+    if (kw == "BOOLEAN") return BOOLEAN_;
+    if (kw == "INTEGER") return INTEGER_;
+    if (kw == "CHAR") return CHAR_;
+    if (kw == "DOUBLE") return DOUBLE_;
+
     return UNKNOWN_KEYWORD;
 }
-
-// Traite une instruction simple (actuellement : affectation uniquement)
-void Statement(void) {
+// Ajoute la prise en compte de VAR dans Statement()
+void Statement() {
     if (current == ID) {
         AssignementStatement();
     } else if (current == MOTCLE) {
-        switch(GetKeyword()) {
-            case IF_:     IfStatement(); break;
-            case WHILE_:  WhileStatement(); break;
-            case FOR_:    ForStatement(); break;
-            case BEGIN_:  BlockStatement(); break;
-            case DISPLAY_: DisplayStatement(); break;
-
-            default: Erreur("Mot-clé inattendu");
+        int kw = GetKeyword();
+        switch(kw) {
+            case VAR_:
+                VarDeclarationPart();
+                break;
+            case IF_:
+                IfStatement();
+                break;
+            case WHILE_:
+                WhileStatement();
+                break;
+            case FOR_:
+                ForStatement();
+                break;
+            case BEGIN_:
+                BlockStatement();
+                break;
+            case DISPLAY_:
+                DisplayStatement();
+                break;
+            default:
+                Erreur("Mot-clé inattendu");
         }
     } else {
         Erreur("Instruction inconnue");
@@ -582,31 +658,43 @@ void StatementPart(void) {
 }
 
 // Lance l'analyse complète : déclaration + instructions
-void Program(void) {
-    if (current == RBRACKET)
-        DeclarationPart();
-
+void Program() {
+    if (current == MOTCLE && GetKeyword() == VAR_) {
+        VarDeclarationPart();  // On traite la section VAR avant les instructions
+    }
     StatementPart();
 }
 
 
 void DisplayStatement() {
-    current = (TOKEN) lexer->yylex(); // lire l'expression
-    TYPES t = Expression(); // compiler l'expression
+    current = (TOKEN) lexer->yylex();
+    TYPES t = Expression();
 
-    if (t != UNSIGNED_INT) 
-        TypeErreur("DISPLAY ne fonctionne qu'avec des entiers non signés");
+    unsigned long localTag = ++tagID;  // Incrémente ici pour avoir un tag unique
 
-    cout << "\tpop %rdx" << endl;
-    cout << "\tmovq $DisplayMsg, %rsi" << endl;
-    cout << "\tmovq $FormatString1, %rsi" << endl;
-    cout << "\tmovl $1, %edi" << endl;
-    cout << "\tmovl $0, %eax" << endl;
-    cout << "\tcall __printf_chk@PLT" << endl;
+    if (t == UNSIGNED_INT) {
+        cout << "\tpop %rsi" << endl;                     
+        cout << "\tmovq $FormatString1, %rdi" << endl;    
+        cout << "\tmovl $0, %eax" << endl;                 
+        cout << "\tcall printf@PLT" << endl;
+    }
+    else if (t == BOOLEAN) {
+        cout << "\tpop %rdx\t# valeur booléenne à afficher" << endl;
+        cout << "\tcmpq $0, %rdx" << endl;
+        cout << "\tje BoolFalse" << localTag << endl;
+        cout << "\tmovq $TrueString, %rsi" << endl;
+        cout << "\tjmp BoolEnd" << localTag << endl;
+        cout << "BoolFalse" << localTag << ":" << endl;
+        cout << "\tmovq $FalseString, %rsi" << endl;
+        cout << "BoolEnd" << localTag << ":" << endl;
+        cout << "\tmovl $1, %edi" << endl;
+        cout << "\tmovl $0, %eax" << endl;
+        cout << "\tcall printf@PLT" << endl;
+    }
+    else {
+        TypeErreur("DISPLAY ne fonctionne qu'avec des entiers non signés ou booléens");
+    }
 }
-
-
-
 
 
 
@@ -662,7 +750,9 @@ int main(void) {
     cout << "DisplayMsg:\t.string \"Résultat : %llu\\n\"\t# affichage entier 64 bits" << endl;
     cout << "FormatString1:\t.string \"%llu\\n\"\t# affichage brut sans message" << endl;
 
-    
+    cout << "TrueString:\t.string \"TRUE\\n\"" << endl;
+    cout << "FalseString:\t.string \"FALSE\\n\"" << endl;
+
 
 
     // Section standard GNU

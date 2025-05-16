@@ -1,46 +1,65 @@
 			# Code généré automatiquement par MonCompilateur
 	.extern printf
-	.data
-	.align 8
 a:	.quad 0
 b:	.quad 0
 c:	.quad 0
+x:	.quad 0
+y:	.quad 0
 z:	.quad 0
 	.text
 	.globl main
 main:
 	movq %rsp, %rbp
-	push $10
-	pop a
-	push $20
-	pop b
-	push a
-	push b
+	push $5
+	push $6
 	pop %rbx
 	pop %rax
 	addq	%rbx, %rax	# ADD
 	push %rax
-	pop c
-	push c
-	push $25
-	pop %rax
+	pop x
+	push x
+	push $2
 	pop %rbx
-	cmpq %rax, %rbx
-	ja Vrai2
-	push $0
-	jmp Suite2
-Vrai2:	push $-1
-Suite2:
 	pop %rax
-	cmpq $0, %rax
-	je ELSE1
+	subq	%rbx, %rax	# SUB
+	push %rax
+	pop y
+	push x
+	push y
+	pop %rbx
+	pop %rax
+	mulq	%rbx
+	push %rax	# MUL
+	pop z
 	push $1
-	pop z
-	jmp FINIF1
-ELSE1:
+	pop a
 	push $0
-	pop z
-FINIF1:
+	pop b
+	push x
+	pop %rsi
+	movq $FormatString1, %rdi
+	movl $0, %eax
+	call printf@PLT
+	push y
+	pop %rsi
+	movq $FormatString1, %rdi
+	movl $0, %eax
+	call printf@PLT
+	push z
+	pop %rsi
+	movq $FormatString1, %rdi
+	movl $0, %eax
+	call printf@PLT
+	push a
+	pop %rsi
+	movq $FormatString1, %rdi
+	movl $0, %eax
+	call printf@PLT
+	push b
+	pop %rsi
+	movq $FormatString1, %rdi
+	movl $0, %eax
+	call printf@PLT
 	movq a, %rsi
 	leaq msg_a(%rip), %rdi
 	xor %rax, %rax
@@ -64,4 +83,8 @@ msg_a:	.string "Valeur de a : %ld\n"
 msg_b:	.string "Valeur de b : %ld\n"
 msg_c:	.string "Valeur de c : %ld\n"
 msg_z:	.string "Valeur de z : %ld\n"
+DisplayMsg:	.string "Résultat : %llu\n"	# affichage entier 64 bits
+FormatString1:	.string "%llu\n"	# affichage brut sans message
+TrueString:	.string "TRUE\n"
+FalseString:	.string "FALSE\n"
 	.section .note.GNU-stack,"",@progbits

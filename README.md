@@ -32,6 +32,21 @@ Ce projet est un mini-compilateur développé en C++ pour traduire un programme 
 - Détection des erreurs de type : affectation incorrecte, mauvais type de condition
 - Ajout d’un système de type (UNSIGNED_INT, BOOLEAN)
 
+### TP5 : Instruction DISPLAY
+- Ajout de l’instruction DISPLAY pour afficher une expression entière
+- Génération du code assembleur d’affichage conforme à la convention d’appel de `printf`
+- Gestion du format de sortie
+
+---
+
+###  TP6 : Déclaration de variables typées (en cours)
+- Syntaxe de déclaration typée inspirée du Pascal
+- Déclarations multiples avec séparation par `;` et `:`
+- Gestion correcte des types dès la déclaration
+- Vérification des doublons
+
+---
+
 ## Utilisation
 
 

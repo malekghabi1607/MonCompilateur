@@ -51,6 +51,13 @@ keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER
 "DISPLAY"               return MOTCLE;
 {keyword}        return MOTCLE;
 
+"VAR"       { return MOTCLE; }
+"BOOLEAN"   { return MOTCLE; }
+"INTEGER"   { return MOTCLE; }
+
+"CHAR"      { return MOTCLE; }
+"DOUBLE"    { return MOTCLE; }
+
 
 {id}		return ID;
 
@@ -64,6 +71,10 @@ keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER
 "("		return RPARENT;
 ")"		return LPARENT;
 "!"		return NOT;
+
+":"     { return COLON; }
+"."     { return DOT; }
+
 <<EOF>>		return FEOF;
 {ws}    {/* skip blanks and tabs */};
 "(*"    { /* Skip comments between '(*' and '*)' */
