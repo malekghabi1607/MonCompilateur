@@ -1,16 +1,10 @@
 VAR
-    a, b, c : INTEGER;
-    x, y, z : INTEGER.
+  a, b, c : BOOLEAN;
+  x, y, z : INTEGER.
 
-x := 5 + 6;
-y := x - 2;
-z := x * y;
 
 a := 1;
-b := 0;
-
-DISPLAY x;
-DISPLAY y;
-DISPLAY z;
+b := 2;
+c := (a < b);
 DISPLAY a;
-DISPLAY b.
+DISPLAY c.
