@@ -1,21 +1,18 @@
-[a, b, c, z, i]
+VAR
+    a,b : INTEGER;
+    c: BOOLEAN.
+a := 1;
+b := 6;
 
-a := 2;
-b := 10;
-z := 0;
-
-IF a < b THEN
-    z := 1
-ELSE
-    z := 2;
-
-WHILE a < b DO
-    a := a + 1;
-
-FOR i := 0 TO 3 DO
-    b := b + 1;
-
+WHILE a < 12 DO
 BEGIN
-    c := 5;
-    z := z + c
+    IF a % 2 == 0 THEN
+        DISPLAY a
+    ELSE
+        DISPLAY a * 2;
+    a := a + 1;
+    b := 2;
+    c := (a == b);
+    c := (a <= b);
+    DISPLAY c;
 END.

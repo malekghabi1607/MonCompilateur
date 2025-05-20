@@ -108,7 +108,8 @@ TYPES Identifier() {
     string nom = lexer->YYText();
     if (!VariableConnue(nom))
         Erreur("Variable non déclarée : " + nom);
-    cout << "\tpush " << nom << endl;
+    cout << "\tmovq " << nom << "(%rip), %rax" << endl;
+    cout << "\tpush %rax" << endl;
     current = (TOKEN) lexer->yylex();
     return DeclaredVars[nom];
 }
@@ -443,7 +444,6 @@ void AssignementStatement(void) {
 }
 
 
-
 int GetKeyword() {
     string kw = lexer->YYText();
     if (kw == "IF") return IF_;
@@ -462,8 +462,11 @@ int GetKeyword() {
     if (kw == "CHAR") return CHAR_;
     if (kw == "DOUBLE") return DOUBLE_;
 
+    cout << "DEBUG GetKeyword : mot inconnu -> '" << kw << "'" << endl;
     return UNKNOWN_KEYWORD;
 }
+
+
 // Ajoute la prise en compte de VAR dans Statement()
 void Statement() {
     if (current == ID) {
@@ -619,22 +622,28 @@ void ForStatement() {
 // Gère un bloc BEGIN ... END contenant plusieurs instructions
 // Syntaxe : BEGIN <instruction> { ; <instruction> } END
 void BlockStatement() {
-    if (GetKeyword() != BEGIN_) Erreur("'BEGIN' attendu");
+    if (GetKeyword() != BEGIN_)
+        Erreur("'BEGIN' attendu");
     current = (TOKEN) lexer->yylex();
 
-    // Première instruction
+    // Debug : afficher le token actuel et le texte associé
+    cout << "DEBUG BlockStatement : current token = " << current << ", texte = '" << lexer->YYText() << "'" << endl;
+
     Statement();
 
-    // Instructions séparées par ;
     while (current == SEMICOLON) {
-        current = (TOKEN) lexer->yylex();
+        current = (TOKEN) lexer->yylex();  // Passe le ";"
         Statement();
     }
 
-    // Fin du bloc
-    if (current != MOTCLE || GetKeyword() != END_) Erreur("'END' attendu pour fermer le bloc");
+    // Debug avant de vérifier END
+    cout << "DEBUG BlockStatement avant END check : current token = " << current << ", texte = '" << lexer->YYText() << "'" << endl;
+
+    if (GetKeyword() != END_)
+        Erreur("'END' attendu pour fermer le bloc");
     current = (TOKEN) lexer->yylex();
 }
+
 
 
 
@@ -670,32 +679,29 @@ void DisplayStatement() {
     current = (TOKEN) lexer->yylex();
     TYPES t = Expression();
 
-    unsigned long localTag = ++tagID;  // Incrémente ici pour avoir un tag unique
+    unsigned long localTag = ++tagID;  // Tag unique
 
     if (t == UNSIGNED_INT) {
-        cout << "\tpop %rsi" << endl;                     
-        cout << "\tmovq $FormatString1, %rdi" << endl;    
-        cout << "\tmovl $0, %eax" << endl;                 
+        cout << "\tpop %rsi\t# valeur à afficher" << endl;
+        cout << "\tmovq $FormatString1, %rdi\t# format %llu\\n" << endl;
+        cout << "\tmovl $0, %eax\t\t\t# nombre d'arguments flottants" << endl;
         cout << "\tcall printf@PLT" << endl;
     }
     else if (t == BOOLEAN) {
-        cout << "\tpop %rdx\t# valeur booléenne à afficher" << endl;
-        cout << "\tcmpq $0, %rdx" << endl;
+        cout << "\tpop %rsi\t# valeur booléenne à afficher" << endl;
+        cout << "\tcmpq $0, %rsi" << endl;
         cout << "\tje BoolFalse" << localTag << endl;
-        cout << "\tmovq $TrueString, %rsi" << endl;
+        cout << "\tmovq $TrueString, %rdi\t# chaîne TRUE" << endl;
         cout << "\tjmp BoolEnd" << localTag << endl;
         cout << "BoolFalse" << localTag << ":" << endl;
-        cout << "\tmovq $FalseString, %rsi" << endl;
+        cout << "\tmovq $FalseString, %rdi\t# chaîne FALSE" << endl;
         cout << "BoolEnd" << localTag << ":" << endl;
-        cout << "\tmovl $1, %edi" << endl;
-        cout << "\tmovl $0, %eax" << endl;
-        cout << "\tcall printf@PLT" << endl;
+        cout << "\tcall puts@PLT" << endl;
     }
     else {
         TypeErreur("DISPLAY ne fonctionne qu'avec des entiers non signés ou booléens");
     }
 }
-
 
 
 // Point d'entrée principal du compilateur

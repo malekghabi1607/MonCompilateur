@@ -1,10 +1,11 @@
 VAR
-  a, b, c : BOOLEAN;
-  x, y, z : INTEGER.
-
-
-a := 1;
-b := 2;
-c := (a < b);
-DISPLAY a;
-DISPLAY c.
+    a,b : INTEGER;
+    c : BOOLEAN.
+BEGIN
+    a := 10;
+    b := 20;
+    c := (a < b);
+    DISPLAY a;
+    DISPLAY b;
+    DISPLAY c;
+END.

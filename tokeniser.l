@@ -47,9 +47,9 @@ keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER
 "FOR"       return MOTCLE;
 "TO"        return MOTCLE;
 "BEGIN"     return MOTCLE;
-"END"       return MOTCLE;
-"DISPLAY"               return MOTCLE;
-{keyword}        return MOTCLE;
+
+"DISPLAY"   return MOTCLE;
+{keyword}   return MOTCLE;
 
 "VAR"       { return MOTCLE; }
 "BOOLEAN"   { return MOTCLE; }
