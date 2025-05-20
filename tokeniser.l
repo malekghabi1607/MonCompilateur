@@ -29,7 +29,9 @@ addop	(\+|\-|\|\|)
 mulop	(\*|\/|%|\&\&)
 relop	(\<|\>|"=="|\<=|\>=|!=)
 unknown [^\"A-Za-z0-9 \n\r\t\(\)\<\>\=\!\%\&\|\}\-\;\.]+
-keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER"|"BOOLEAN"|"DISPLAY")
+
+charconst    \'[^\']\'            { return CHARCONST; }
+doubleconst  [0-9]+\.[0-9]+       { return DOUBLE_CONST; }
 
 
 %%
@@ -39,25 +41,21 @@ keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER
 {relop}		return RELOP;
 {number}	return NUMBER;
 
-"IF"        return MOTCLE;
-"THEN"      return MOTCLE;
-"ELSE"      return MOTCLE;
-"WHILE"     return MOTCLE;
-"DO"        return MOTCLE;
-"FOR"       return MOTCLE;
-"TO"        return MOTCLE;
-"BEGIN"     return MOTCLE;
-
-"DISPLAY"   return MOTCLE;
-{keyword}   return MOTCLE;
-
+"IF"        { return MOTCLE; }
+"THEN"      { return MOTCLE; }
+"ELSE"      { return MOTCLE; }
+"WHILE"     { return MOTCLE; }
+"FOR"       { return MOTCLE; }
+"DO"        { return MOTCLE; }
+"TO"        { return MOTCLE; }
+"BEGIN"     { return MOTCLE; }
+"END"       { return MOTCLE; }
 "VAR"       { return MOTCLE; }
 "BOOLEAN"   { return MOTCLE; }
 "INTEGER"   { return MOTCLE; }
-
 "CHAR"      { return MOTCLE; }
 "DOUBLE"    { return MOTCLE; }
-
+"DISPLAY"   { return MOTCLE; }
 
 {id}		return ID;
 
@@ -68,12 +66,14 @@ keyword ("IF"|"THEN"|"ELSE"|"WHILE"|"FOR"|"DO"|"TO"|"BEGIN"|"END"|"VAR"|"INTEGER
 ";"		return SEMICOLON;
 "."		return DOT;
 ":="		return ASSIGN;
-"("		return RPARENT;
-")"		return LPARENT;
+"("		return LPARENT;
+")"		return RPARENT;
 "!"		return NOT;
 
 ":"     { return COLON; }
-"."     { return DOT; }
+"."		return DOT;
+
+
 
 <<EOF>>		return FEOF;
 {ws}    {/* skip blanks and tabs */};

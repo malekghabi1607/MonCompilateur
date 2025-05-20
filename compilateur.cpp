@@ -142,15 +142,34 @@ TYPES Factor() {
         if (current != LPARENT)
             Erreur("Parenthèse fermante attendue");
         current = (TOKEN) lexer->yylex();
-    } else if (current == NUMBER) {
+    } 
+    else if (current == NUMBER) {
         t = Number();
-    } else if (current == ID) {
+    } 
+    else if (current == DOUBLE_CONST_TOKEN) {  // Token
+        double d = atof(lexer->YYText());
+        unsigned long long *p = (unsigned long long*)&d;
+        cout << "\tsubq $8, %rsp\t\t\t# allocation 8 octets pour double" << endl;
+        cout << "\tmovq $" << *p << ", (%rsp)\t# empile double " << d << endl;
+        current = (TOKEN) lexer->yylex();
+        t = DOUBLE_TYPE;   // Type
+    } 
+    else if (current == CHARCONST_TOKEN) {  // Token
+        cout << "\tmovq $0, %rax" << endl;
+        cout << "\tmovb $" << lexer->YYText()[1] << ", %al" << endl;
+        cout << "\tpush %rax\t# empile caractère " << lexer->YYText() << endl;
+        current = (TOKEN) lexer->yylex();
+        t = CHAR_TYPE;   // Type
+    } 
+    else if (current == ID) {
         t = Identifier();
-    } else {
-        Erreur("valeur attendue : identifiant, nombre ou parenthèse");
+    } 
+    else {
+        Erreur("valeur attendue : identifiant, nombre, double, caractère ou parenthèse");
     }
     return t;
 }
+
 
 
 // MultiplicativeOperator := "*" | "/" | "%" | "&&"
@@ -178,41 +197,63 @@ OPMUL MultiplicativeOperator(void){
 }
 // Analyse un terme : une suite de facteurs liés par des opérateurs multiplicatifs
 // Term := Factor {MultiplicativeOperator Factor}
-
-
 TYPES Term() {
     TYPES t1 = Factor();
     while (current == MULOP) {
         OPMUL op = MultiplicativeOperator();
         TYPES t2 = Factor();
         if (t1 != t2) TypeErreur("types incompatibles dans Term");
-        cout << "\tpop %rbx" << endl;
-        cout << "\tpop %rax" << endl;
-        switch(op) {
-            case AND:
-                cout << "\tmulq\t%rbx" << endl;
-                cout << "\tpush %rax\t# AND" << endl;
-                break;
-            case MUL:
-                cout << "\tmulq\t%rbx" << endl;
-                cout << "\tpush %rax\t# MUL" << endl;
-                break;
-            case DIV:
-                cout << "\tmovq $0, %rdx" << endl;
-                cout << "\tdiv %rbx" << endl;
-                cout << "\tpush %rax\t# DIV" << endl;
-                break;
-            case MOD:
-                cout << "\tmovq $0, %rdx" << endl;
-                cout << "\tdiv %rbx" << endl;
-                cout << "\tpush %rdx\t# MOD" << endl;
-                break;
-            default:
-                Erreur("opérateur multiplicatif attendu");
+        
+        if (t1 == DOUBLE_TYPE) {
+            // Opérations en flottant 64 bits avec la pile flottante x87
+            switch(op) {
+                case MUL:
+                    cout << "\tfldl 8(%rsp)\n";           // Charger op2 dans st(0)
+                    cout << "\tfldl (%rsp)\n";             // Charger op1 dans st(0), st(1) = op2
+                    cout << "\tfmulp %st(0), %st(1)\n";   // st(1) = st(1) * st(0), pop st(0)
+                    cout << "\tfstpl 8(%rsp)\n";           // Stocker le résultat à l'emplacement de op2
+                    cout << "\taddq $8, %rsp\n";           // Dépile op1 de la pile générale
+                    break;
+                case DIV:
+                    cout << "\tfldl (%rsp)\n";
+                    cout << "\tfldl 8(%rsp)\n";
+                    cout << "\tfdivp %st(0), %st(1)\n";
+                    cout << "\tfstpl 8(%rsp)\n";
+                    cout << "\taddq $8, %rsp\n";
+                    break;
+                default:
+                    Erreur("opérateur multiplicatif flottant non supporté");
+            }
+        }
+        else {
+            // Opérations entières
+            cout << "\tpop %rbx" << endl;
+            cout << "\tpop %rax" << endl;
+            switch(op) {
+                case AND:
+                    cout << "\tmulq\t%rbx" << endl;
+                    cout << "\tpush %rax\t# AND" << endl;
+                    break;
+                case MUL:
+                    cout << "\tmulq\t%rbx" << endl;
+                    cout << "\tpush %rax\t# MUL" << endl;
+                    break;
+                case DIV:
+                    cout << "\tmovq $0, %rdx" << endl;
+                    cout << "\tdiv %rbx" << endl;
+                    cout << "\tpush %rax\t# DIV" << endl;
+                    break;
+                case MOD:
+                    cout << "\tmovq $0, %rdx" << endl;
+                    cout << "\tdiv %rbx" << endl;
+                    cout << "\tpush %rdx\t# MOD" << endl;
+                    break;
+                default:
+                    Erreur("opérateur multiplicatif attendu");
+            }
         }
     }
     return t1;
-
 }
 
 // SimpleExpression := Term {AdditiveOperator Term}
@@ -225,27 +266,48 @@ TYPES SimpleExpression() {
         OPADD op = AdditiveOperator();
         TYPES t2 = Term();
         if (t1 != t2) TypeErreur("types incompatibles dans SimpleExpression");
-        cout << "\tpop %rbx" << endl;
-        cout << "\tpop %rax" << endl;
-        switch(op) {
-            case OR:
-                cout << "\taddq\t%rbx, %rax\t# OR" << endl;
-                break;
-            case ADD:
-                cout << "\taddq\t%rbx, %rax\t# ADD" << endl;
-                break;
-            case SUB:
-                cout << "\tsubq\t%rbx, %rax\t# SUB" << endl;
-                break;
-            default:
-                Erreur("opérateur additif inconnu");
+
+        if (t1 == DOUBLE_TYPE) {
+            switch(op) {
+                case ADD:
+                    cout << "\tfldl 8(%rsp)\n";
+                    cout << "\tfldl (%rsp)\n";
+                    cout << "\tfaddp %st(0), %st(1)\n";
+                    cout << "\tfstpl 8(%rsp)\n";
+                    cout << "\taddq $8, %rsp\n";
+                    break;
+                case SUB:
+                    cout << "\tfldl (%rsp)\n";
+                    cout << "\tfldl 8(%rsp)\n";
+                    cout << "\tfsubp %st(0), %st(1)\n";
+                    cout << "\tfstpl 8(%rsp)\n";
+                    cout << "\taddq $8, %rsp\n";
+                    break;
+                default:
+                    Erreur("opérateur additif flottant non supporté");
+            }
         }
-        cout << "\tpush %rax" << endl;
+        else {
+            cout << "\tpop %rbx" << endl;
+            cout << "\tpop %rax" << endl;
+            switch(op) {
+                case OR:
+                    cout << "\taddq\t%rbx, %rax\t# OR" << endl;
+                    break;
+                case ADD:
+                    cout << "\taddq\t%rbx, %rax\t# ADD" << endl;
+                    break;
+                case SUB:
+                    cout << "\tsubq\t%rbx, %rax\t# SUB" << endl;
+                    break;
+                default:
+                    Erreur("opérateur additif inconnu");
+            }
+            cout << "\tpush %rax" << endl;
+        }
     }
     return t1;
 }
-
-
 
 
 
@@ -281,35 +343,42 @@ void VarDeclaration() {
     TYPES type = Type();
 
     for (auto& nom : variables) {
-        if (DeclaredVars.count(nom))
-            Erreur("Variable déjà déclarée : " + nom);
+    if (DeclaredVars.count(nom))
+        Erreur("Variable déjà déclarée : " + nom);
 
-        DeclaredVars[nom] = type;
+    DeclaredVars[nom] = type;
 
-        // Affiche la bonne allocation mémoire en assembleur suivant le type
-        switch(type) {
-            case BOOLEAN:
-            case UNSIGNED_INT:
-                cout << nom << ":\t.quad 0" << endl;
-                break;
-            // tu peux gérer d'autres types ici plus tard (CHAR, DOUBLE)
-            default:
-                Erreur("Type non géré en allocation mémoire");
-        }
+    switch(type) {
+        case BOOLEAN:
+        case UNSIGNED_INT:
+            cout << nom << ":\t.quad 0" << endl;
+            break;
+        case DOUBLE_TYPE:
+            cout << nom << ":\t.double 0.0" << endl;
+            break;
+        case CHAR_TYPE:
+            cout << nom << ":\t.byte 0" << endl;
+            break;
+        default:
+            Erreur("Type non géré en allocation mémoire");
     }
+}
+
 }
 
 // Gestion complète de la déclaration VAR ...
 void VarDeclarationPart() {
     if (GetKeyword() != VAR_)
         Erreur("'VAR' attendu");
-
+    
     current = (TOKEN) lexer->yylex(); // Passe 'VAR'
+    cout << "DEBUG VarDeclarationPart: current token = " << lexer->YYText() << endl;
 
     VarDeclaration();
 
     while (current == SEMICOLON) {
         current = (TOKEN) lexer->yylex();
+        cout << "DEBUG VarDeclarationPart loop: current token = " << lexer->YYText() << endl;
         VarDeclaration();
     }
 
@@ -317,6 +386,7 @@ void VarDeclarationPart() {
         Erreur("'.' attendu à la fin de la déclaration de variables");
 
     current = (TOKEN) lexer->yylex(); // Passe '.'
+    cout << "DEBUG VarDeclarationPart end: current token = " << lexer->YYText() << endl;
 }
 
 
@@ -332,11 +402,18 @@ TYPES Type() {
     } else if (t == "INTEGER") {
         current = (TOKEN) lexer->yylex();
         return UNSIGNED_INT;
+    } else if (t == "DOUBLE") {
+        current = (TOKEN) lexer->yylex();
+        return DOUBLE_TYPE;
+    } else if (t == "CHAR") {
+        current = (TOKEN) lexer->yylex();
+        return CHAR_TYPE;
     } else {
         Erreur("Type non reconnu : " + t);
-        return BOOLEAN; // juste pour éviter warnings
+        return BOOLEAN; // pour éviter warnings
     }
 }
+
 
 
 
@@ -459,8 +536,8 @@ int GetKeyword() {
     if (kw == "VAR") return VAR_;
     if (kw == "BOOLEAN") return BOOLEAN_;
     if (kw == "INTEGER") return INTEGER_;
-    if (kw == "CHAR") return CHAR_;
-    if (kw == "DOUBLE") return DOUBLE_;
+    if (kw == "CHAR") return CHAR_KEYWORD_;
+    if (kw == "DOUBLE") return DOUBLE_KEYWORD_;
 
     cout << "DEBUG GetKeyword : mot inconnu -> '" << kw << "'" << endl;
     return UNKNOWN_KEYWORD;
@@ -622,7 +699,7 @@ void ForStatement() {
 // Gère un bloc BEGIN ... END contenant plusieurs instructions
 // Syntaxe : BEGIN <instruction> { ; <instruction> } END
 void BlockStatement() {
-    if (GetKeyword() != BEGIN_)
+    if (current != MOTCLE || GetKeyword() != BEGIN_)
         Erreur("'BEGIN' attendu");
     current = (TOKEN) lexer->yylex();
 
@@ -633,16 +710,18 @@ void BlockStatement() {
 
     while (current == SEMICOLON) {
         current = (TOKEN) lexer->yylex();  // Passe le ";"
+        cout << "DEBUG après ';' : current token = " << current << ", texte = '" << lexer->YYText() << "'" << endl;
         Statement();
     }
 
-    // Debug avant de vérifier END
-    cout << "DEBUG BlockStatement avant END check : current token = " << current << ", texte = '" << lexer->YYText() << "'" << endl;
+    cout << "DEBUG avant END check : current token = " << current << ", texte = '" << lexer->YYText() << "'" << endl;
 
-    if (GetKeyword() != END_)
+    if (current != MOTCLE || GetKeyword() != END_)
         Erreur("'END' attendu pour fermer le bloc");
     current = (TOKEN) lexer->yylex();
 }
+
+
 
 
 
@@ -697,8 +776,18 @@ void DisplayStatement() {
         cout << "\tmovq $FalseString, %rdi\t# chaîne FALSE" << endl;
         cout << "BoolEnd" << localTag << ":" << endl;
         cout << "\tcall puts@PLT" << endl;
-    }
-    else {
+    } else if (t == DOUBLE_TYPE) {
+        cout << "\tmovsd (%rsp), %xmm0\t# récupère le double" << endl;
+        cout << "\tsubq $8, %rsp\t\t# dépile la pile générale" << endl;
+        cout << "\tmovq $FormatString2, %rdi\t# \"%f\\n\"" << endl;
+        cout << "\tmovl $1, %eax" << endl; 
+        cout << "\tcall printf@PLT" << endl;
+    } else if (t == CHAR_TYPE) {
+        cout << "\tpop %rsi\t# récupère le caractère" << endl;
+        cout << "\tmovq $FormatString3, %rdi\t# \"%c\\n\"" << endl;
+        cout << "\tmovl $0, %eax" << endl;
+        cout << "\tcall printf@PLT" << endl;
+    } else {
         TypeErreur("DISPLAY ne fonctionne qu'avec des entiers non signés ou booléens");
     }
 }
